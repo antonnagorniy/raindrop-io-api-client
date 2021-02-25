@@ -84,7 +84,8 @@ func NewClient(accessToken string) (*Client, error) {
 	return &client, nil
 }
 
-// GetCollections call Get root collections API (ref. https://developer.raindrop.io/v1/collections/methods#get-root-collections)
+// GetCollections call Get root collections API.
+// Reference: https://developer.raindrop.io/v1/collections/methods#get-root-collections
 func (c *Client) GetCollections() (*Collections, error) {
 	uri := "/rest/v1/collections"
 	req, err := c.newRequest("GET", uri)
@@ -105,7 +106,8 @@ func (c *Client) GetCollections() (*Collections, error) {
 	return r, nil
 }
 
-// GetRaindrops call Get raindrops API (refs. https://developer.raindrop.io/v1/raindrops/multiple#get-raindrops)
+// GetRaindrops call Get raindrops API.
+// Reference: https://developer.raindrop.io/v1/raindrops/multiple#get-raindrops
 func (c *Client) GetRaindrops(collectionID string, perpage int) (*Raindrops, error) {
 	uri := fmt.Sprintf("/rest/v1/raindrops/%s", collectionID)
 	req, err := c.newRequest("GET", uri)
