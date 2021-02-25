@@ -1,9 +1,9 @@
-name: develop CI
+name: master CI
 
 on:
-  push:
+  pull_request:
     branches:
-      - develop
+      - master
 
 jobs:
   lint:
@@ -22,9 +22,7 @@ jobs:
       - uses: actions/setup-go@v1
         with:
           go-version: 1.15
-
-      - name: Run tests
-        run: go mod tidy && go test ./...
-
       - name: Run tests with coverage
         run: go mod tidy && go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+      - name: Upload coverage to Codecov
+        run: bash <(curl -s https://codecov.io/bash)
