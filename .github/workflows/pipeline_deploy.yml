@@ -3,7 +3,7 @@ name: master CI
 on:
   pull_request:
     branches:
-      - origin
+      - master
 
 jobs:
   lint:
@@ -28,8 +28,3 @@ jobs:
 
       - name: Run tests with coverage
         run: go mod tidy && go test -race -coverprofile=coverage.txt -covermode=atomic ./...
-
-  #      - name: Upload Coverage report to CodeCov
-  #        uses: codecov/codecov-action@v1.0.0
-  #        with:
-  #          file: ./coverage.txt
