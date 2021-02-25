@@ -202,10 +202,7 @@ func (c *Client) newRequest(method string, apiPath string) (*http.Request, error
 
 func parseResponse(response *http.Response, expectedStatus int, clazz interface{}) error {
 	defer func() {
-		err := response.Body.Close()
-		if err != nil {
-			fmt.Errorf("Error closing response %s", err)
-		}
+		_ = response.Body.Close()
 	}()
 
 	if response.StatusCode != expectedStatus {
