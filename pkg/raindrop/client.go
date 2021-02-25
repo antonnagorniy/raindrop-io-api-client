@@ -4,20 +4,65 @@
 package raindrop
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
+	"time"
 )
 
-const endpoint string = "https://api.raindrop.io"
+const (
+	host                  = "https://api.raindrop.io"
+	endpointAuthorize     = "/oauth/authorize"
+	endpointTokenExchange = "/oauth/access_token"
+	endpointRefreshToken  = "/oauth/access_token"
+
+	defaultTimeout = 5 * time.Second
+
+	// xErrorHeader used to parse error message from Headers on non-2XX responses
+	xErrorHeader = "X-Error"
+)
 
 // Client is a raindrop client
 type Client struct {
-	baseURL     *url.URL
-	httpClient  *http.Client
-	accessToken string
+	baseURL      *url.URL
+	httpClient   *http.Client
+	accessToken  string
+	ClientId     string
+	ClientSecret string
+	RedirectUri  string
+}
+
+type authorizeRequest struct {
+	RedirectUri string `json:"redirect_uri"`
+	ClientId    string `json:"client_id"`
+}
+
+type authorizeResponse struct {
+	Code  string `json:"code"`
+	Error string `json:"error"`
+}
+
+type accessTokenRequest struct {
+	Code         string `json:"code"`
+	ClientId     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectUri  string `json:"redirect_uri"`
+	GrantType    string `json:"grant_type"`
+}
+
+type accessTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	Expires      int    `json:"expires"`
+	ExpiresIn    int    `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+	Error        string `json:"error"`
 }
 
 // Collection represents get collections api response item
@@ -70,14 +115,19 @@ type Tags struct {
 
 // NewClient creates Raindrop Client
 func NewClient(accessToken string) (*Client, error) {
-	u, err := url.Parse(endpoint)
+	if accessToken == "" {
+		return nil, errors.New("access token is empty")
+	}
+	u, err := url.Parse(host)
 	if err != nil {
 		return nil, err
 	}
 
 	client := Client{
-		baseURL:     u,
-		httpClient:  &http.Client{},
+		baseURL: u,
+		httpClient: &http.Client{
+			Timeout: defaultTimeout,
+		},
 		accessToken: accessToken,
 	}
 
@@ -183,6 +233,50 @@ func (c *Client) GetTaggedRaindrops(tag string) (*Raindrops, error) {
 	return r, nil
 }
 
+func (c *Client) GetAccessToken(ctx context.Context) (string, error) {
+
+	code, err := c.getUserCode(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	exchInput := &accessTokenRequest{
+		Code:         code,
+		ClientId:     c.ClientId,
+		ClientSecret: c.ClientSecret,
+		RedirectUri:  c.RedirectUri,
+		GrantType:    code,
+	}
+
+	values, err := c.doHTTP(ctx, endpointTokenExchange, exchInput)
+	if err != nil {
+		return "", err
+	}
+
+	accessToken := values.Get("access_token")
+	return accessToken, nil
+}
+
+func (c *Client) getUserCode(ctx context.Context) (string, error) {
+	authInput := &authorizeRequest{
+		RedirectUri: c.RedirectUri,
+		ClientId:    c.ClientId,
+	}
+
+	values, err := c.doHTTP(ctx, endpointAuthorize, authInput)
+	if err != nil {
+		return "", err
+	}
+
+	code := values.Get("code")
+	reqErr := values.Get("error")
+	if reqErr != "" || code == "" {
+		return "", errors.New("empty code in redirect request, error is " + reqErr)
+	}
+
+	return code, nil
+}
+
 func createSingleSearchParameter(k, v string) string {
 	return fmt.Sprintf(`[{"key":"%s","val":"%s"}]`, k, v)
 }
@@ -211,4 +305,42 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 		return fmt.Errorf("Unexpected Status Code: %d", response.StatusCode)
 	}
 	return json.NewDecoder(response.Body).Decode(clazz)
+}
+
+func (c *Client) doHTTP(ctx context.Context, endpoint string, body interface{}) (url.Values, error) {
+	b, err := json.Marshal(body)
+	if err != nil {
+		return url.Values{}, errors.WithMessage(err, "failed to marshal input body")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, host+endpoint, bytes.NewBuffer(b))
+	if err != nil {
+		return url.Values{}, errors.WithMessage(err, "failed to create new request")
+	}
+
+	req.Header.Set("Content-Type", "application/json; charset=UTF8")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return url.Values{}, errors.WithMessage(err, "failed to send http request")
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Sprintf("API Error: %s", resp.Header.Get(xErrorHeader))
+		return url.Values{}, errors.New(err)
+	}
+
+	respB, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return url.Values{}, errors.WithMessage(err, "failed to read request body")
+	}
+
+	values, err := url.ParseQuery(string(respB))
+	if err != nil {
+		return url.Values{}, errors.WithMessage(err, "failed to parse response body")
+	}
+
+	return values, nil
 }
