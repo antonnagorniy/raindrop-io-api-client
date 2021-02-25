@@ -22,4 +22,4 @@ jobs:
       - name: Run tests with coverage
         run: go mod tidy && go test -race -coverprofile=coverage.txt -covermode=atomic ./...
       - name: Upload coverage to Codecov
-        run: bash <(curl -s https://codecov.io/bash)
+        run: bash <(curl -s https://codecov.io/bash) # -t ${{ secrets.CODECOV_TOKEN }}
