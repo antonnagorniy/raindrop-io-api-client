@@ -21,7 +21,7 @@ const (
 	endpointAuthorize     = "/oauth/authorize"
 	endpointTokenExchange = "/oauth/access_token"
 	//endpointRefreshToken  = "/oauth/access_token"
-
+	authorizeUrl   = ""
 	defaultTimeout = 5 * time.Second
 
 	// xErrorHeader used to parse error message from Headers on non-2XX responses
@@ -36,6 +36,7 @@ type Client struct {
 	ClientId     string
 	ClientSecret string
 	RedirectUri  string
+	clientCode   string
 }
 
 type authorizeRequest struct {
@@ -233,50 +234,6 @@ func (c *Client) GetTaggedRaindrops(tag string) (*Raindrops, error) {
 	return r, nil
 }
 
-func (c *Client) GetAccessToken(ctx context.Context) (string, error) {
-
-	code, err := c.getUserCode(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	exchInput := &accessTokenRequest{
-		Code:         code,
-		ClientId:     c.ClientId,
-		ClientSecret: c.ClientSecret,
-		RedirectUri:  c.RedirectUri,
-		GrantType:    code,
-	}
-
-	values, err := c.doHTTP(ctx, endpointTokenExchange, exchInput)
-	if err != nil {
-		return "", err
-	}
-
-	accessToken := values.Get("access_token")
-	return accessToken, nil
-}
-
-func (c *Client) getUserCode(ctx context.Context) (string, error) {
-	authInput := &authorizeRequest{
-		RedirectUri: c.RedirectUri,
-		ClientId:    c.ClientId,
-	}
-
-	values, err := c.doHTTP(ctx, endpointAuthorize, authInput)
-	if err != nil {
-		return "", err
-	}
-
-	code := values.Get("code")
-	reqErr := values.Get("error")
-	if reqErr != "" || code == "" {
-		return "", errors.New("empty code in redirect request, error is " + reqErr)
-	}
-
-	return code, nil
-}
-
 func createSingleSearchParameter(k, v string) string {
 	return fmt.Sprintf(`[{"key":"%s","val":"%s"}]`, k, v)
 }
@@ -307,7 +264,11 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 	return json.NewDecoder(response.Body).Decode(clazz)
 }
 
-func (c *Client) doHTTP(ctx context.Context, endpoint string, body interface{}) (url.Values, error) {
+func (c *Client) SetAccessToken(accessToken string) {
+	c.accessToken = accessToken
+}
+
+func (c *Client) doHTTP(ctx context.Context, httpMethod string, endpoint string, body interface{}) (url.Values, error) {
 	b, err := json.Marshal(body)
 	if err != nil {
 		return url.Values{}, errors.WithMessage(err, "failed to marshal input body")
@@ -343,4 +304,26 @@ func (c *Client) doHTTP(ctx context.Context, endpoint string, body interface{}) 
 	}
 
 	return values, nil
+}
+
+func (c *Client) GetAuthorizationURL() (string, error) {
+	return fmt.Sprintf(authorizeUrl, c.RedirectUri, c.ClientId), nil
+}
+
+func (c *Client) GetAccessToken(ctx context.Context) (string, error) {
+
+	accessToken := ""
+	return accessToken, nil
+}
+
+func (c *Client) GetUserCode(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		return
+	}
+	_, err := fmt.Fprintf(w, "<h1>You've been authorized</h1><p>%s</p>", code)
+	if err != nil {
+		return
+	}
+	c.clientCode = code
 }
