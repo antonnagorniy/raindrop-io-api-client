@@ -21,7 +21,7 @@ const (
 	endpointAuthorize     = "/oauth/authorize"
 	endpointTokenExchange = "/oauth/access_token"
 	//endpointRefreshToken  = "/oauth/access_token"
-	authorizeUrl   = ""
+	authorizeUrl   = host + endpointAuthorize + "?redirect_uri=%s&client_id=%s"
 	defaultTimeout = 5 * time.Second
 
 	// xErrorHeader used to parse error message from Headers on non-2XX responses
@@ -234,6 +234,32 @@ func (c *Client) GetTaggedRaindrops(tag string) (*Raindrops, error) {
 	return r, nil
 }
 
+func (c *Client) GetAuthorizationURL() (string, error) {
+	return fmt.Sprintf(authorizeUrl, c.RedirectUri, c.ClientId), nil
+}
+
+func (c *Client) GetAccessToken(ctx context.Context) (string, error) {
+
+	accessToken := ""
+	return accessToken, nil
+}
+
+func (c *Client) GetUserCode(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		return
+	}
+	_, err := fmt.Fprintf(w, "<h1>You've been authorized</h1><p>%s</p>", code)
+	if err != nil {
+		return
+	}
+	c.clientCode = code
+}
+
+func (c *Client) SetAccessToken(accessToken string) {
+	c.accessToken = accessToken
+}
+
 func createSingleSearchParameter(k, v string) string {
 	return fmt.Sprintf(`[{"key":"%s","val":"%s"}]`, k, v)
 }
@@ -262,10 +288,6 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 		return fmt.Errorf("Unexpected Status Code: %d", response.StatusCode)
 	}
 	return json.NewDecoder(response.Body).Decode(clazz)
-}
-
-func (c *Client) SetAccessToken(accessToken string) {
-	c.accessToken = accessToken
 }
 
 func (c *Client) doHTTP(ctx context.Context, httpMethod string, endpoint string, body interface{}) (url.Values, error) {
@@ -304,26 +326,4 @@ func (c *Client) doHTTP(ctx context.Context, httpMethod string, endpoint string,
 	}
 
 	return values, nil
-}
-
-func (c *Client) GetAuthorizationURL() (string, error) {
-	return fmt.Sprintf(authorizeUrl, c.RedirectUri, c.ClientId), nil
-}
-
-func (c *Client) GetAccessToken(ctx context.Context) (string, error) {
-
-	accessToken := ""
-	return accessToken, nil
-}
-
-func (c *Client) GetUserCode(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		return
-	}
-	_, err := fmt.Fprintf(w, "<h1>You've been authorized</h1><p>%s</p>", code)
-	if err != nil {
-		return
-	}
-	c.clientCode = code
 }
