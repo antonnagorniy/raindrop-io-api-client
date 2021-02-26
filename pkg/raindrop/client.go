@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	host                  = "https://api.raindrop.io"
+	host                  = "https://raindrop.io"
 	endpointAuthorize     = "/oauth/authorize"
 	endpointTokenExchange = "/oauth/access_token"
 	//endpointRefreshToken  = "/oauth/access_token"
 	authorizeUrl   = host + endpointAuthorize + "?redirect_uri=%s&client_id=%s"
+	accessTokenUrl = host + endpointTokenExchange + "?code=%s&client_id=%s&client_secret=%s&redirect_uri=%s&grant_type=%s"
 	defaultTimeout = 5 * time.Second
 
 	// xErrorHeader used to parse error message from Headers on non-2XX responses
@@ -57,14 +58,14 @@ type accessTokenRequest struct {
 	GrantType    string `json:"grant_type"`
 }
 
-/*type accessTokenResponse struct {
+type accessTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	Expires      int    `json:"expires"`
 	ExpiresIn    int    `json:"expires_in"`
 	TokenType    string `json:"token_type"`
 	Error        string `json:"error"`
-}*/
+}
 
 // Collection represents get collections api response item
 type Collection struct {
@@ -114,8 +115,8 @@ type Tags struct {
 	Items  []Tag `json:"items"`
 }
 
-// NewClient creates Raindrop Client
-func NewClient(accessToken string) (*Client, error) {
+// NewTestClient creates Raindrop Client
+func NewTestClient(accessToken string) (*Client, error) {
 	if accessToken == "" {
 		return nil, errors.New("access token is empty")
 	}
@@ -130,6 +131,26 @@ func NewClient(accessToken string) (*Client, error) {
 			Timeout: defaultTimeout,
 		},
 		accessToken: accessToken,
+	}
+
+	return &client, nil
+}
+
+// NewClient creates Raindrop Client
+func NewClient(clientId string, clientSecret string, redirectUri string) (*Client, error) {
+	u, err := url.Parse(host)
+	if err != nil {
+		return nil, err
+	}
+
+	client := Client{
+		baseURL: u,
+		httpClient: &http.Client{
+			Timeout: defaultTimeout,
+		},
+		ClientId:     clientId,
+		ClientSecret: clientSecret,
+		RedirectUri:  redirectUri,
 	}
 
 	return &client, nil
@@ -238,10 +259,22 @@ func (c *Client) GetAuthorizationURL() (string, error) {
 	return fmt.Sprintf(authorizeUrl, c.RedirectUri, c.ClientId), nil
 }
 
-func (c *Client) GetAccessToken(ctx context.Context) (string, error) {
+func (c *Client) getTokenUrl() string {
+	return fmt.Sprintf(accessTokenUrl, c.clientCode, c.ClientId, c.ClientSecret, c.RedirectUri, c.clientCode)
+}
 
-	accessToken := ""
-	return accessToken, nil
+func (c *Client) GetAccessToken(ctx context.Context) error {
+	tokenUrl := c.getTokenUrl()
+
+	values, err := c.doHTTP(ctx, http.MethodPost, tokenUrl, nil)
+	if err != nil {
+		return err
+	}
+
+	accessToken := values.Get("access_token")
+	c.accessToken = accessToken
+	fmt.Println(c.accessToken)
+	return nil
 }
 
 func (c *Client) GetUserCode(w http.ResponseWriter, r *http.Request) {
@@ -254,10 +287,6 @@ func (c *Client) GetUserCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.clientCode = code
-}
-
-func (c *Client) SetAccessToken(accessToken string) {
-	c.accessToken = accessToken
 }
 
 func createSingleSearchParameter(k, v string) string {
@@ -290,13 +319,13 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 	return json.NewDecoder(response.Body).Decode(clazz)
 }
 
-func (c *Client) doHTTP(ctx context.Context, httpMethod string, endpoint string, body interface{}) (url.Values, error) {
+func (c *Client) doHTTP(ctx context.Context, httpMethod string, fullUrl string, body interface{}) (url.Values, error) {
 	b, err := json.Marshal(body)
 	if err != nil {
 		return url.Values{}, errors.WithMessage(err, "failed to marshal input body")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, host+endpoint, bytes.NewBuffer(b))
+	req, err := http.NewRequestWithContext(ctx, httpMethod, fullUrl, bytes.NewBuffer(b))
 	if err != nil {
 		return url.Values{}, errors.WithMessage(err, "failed to create new request")
 	}
