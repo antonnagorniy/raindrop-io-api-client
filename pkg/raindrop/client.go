@@ -20,7 +20,7 @@ const (
 	host                  = "https://api.raindrop.io"
 	endpointAuthorize     = "/oauth/authorize"
 	endpointTokenExchange = "/oauth/access_token"
-	endpointRefreshToken  = "/oauth/access_token"
+	//endpointRefreshToken  = "/oauth/access_token"
 
 	defaultTimeout = 5 * time.Second
 
@@ -43,10 +43,10 @@ type authorizeRequest struct {
 	ClientId    string `json:"client_id"`
 }
 
-type authorizeResponse struct {
+/*type authorizeResponse struct {
 	Code  string `json:"code"`
 	Error string `json:"error"`
-}
+}*/
 
 type accessTokenRequest struct {
 	Code         string `json:"code"`
@@ -56,14 +56,14 @@ type accessTokenRequest struct {
 	GrantType    string `json:"grant_type"`
 }
 
-type accessTokenResponse struct {
+/*type accessTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	Expires      int    `json:"expires"`
 	ExpiresIn    int    `json:"expires_in"`
 	TokenType    string `json:"token_type"`
 	Error        string `json:"error"`
-}
+}*/
 
 // Collection represents get collections api response item
 type Collection struct {
