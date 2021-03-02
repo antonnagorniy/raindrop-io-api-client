@@ -10,12 +10,13 @@ import (
 )
 
 func Test_NewClient(t *testing.T) {
-	actual, err := NewClient("access-token")
+	actual, err := NewClient("", "", "")
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
 
-	actualURL := actual.baseURL.String()
+	actual.accessToken = "access-token"
+	actualURL := actual.apiURL.String()
 	expectedURL := "https://api.raindrop.io"
 	if actualURL != expectedURL {
 		t.Errorf("assert failed. expect:%s actual:%s", expectedURL, actualURL)
@@ -235,7 +236,7 @@ func createTestClient(ts *httptest.Server, t *testing.T) Client {
 	}
 
 	return Client{
-		baseURL:     u,
+		apiURL:      u,
 		httpClient:  &http.Client{},
 		accessToken: "",
 	}

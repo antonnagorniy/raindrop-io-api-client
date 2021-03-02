@@ -4,12 +4,8 @@
 package raindrop
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -17,53 +13,37 @@ import (
 )
 
 const (
-	host                  = "https://api.raindrop.io"
-	endpointAuthorize     = "/oauth/authorize"
-	endpointTokenExchange = "/oauth/access_token"
-	//endpointRefreshToken  = "/oauth/access_token"
-
-	defaultTimeout = 5 * time.Second
-
-	// xErrorHeader used to parse error message from Headers on non-2XX responses
-	xErrorHeader = "X-Error"
+	apiHost             = "https://api.raindrop.io"
+	authHost            = "https://raindrop.io"
+	endpointAuthorize   = "/oauth/authorize"
+	endpointAccessToken = "/oauth/access_token"
+	authorizeUri        = endpointAuthorize + "?redirect_uri=%s&client_id=%s"
+	accessTokenUri      = endpointAccessToken + "?code=%s&client_id=%s&client_secret=%s&redirect_uri=%s&grant_type=%s"
+	refreshTokenUri     = endpointAccessToken + "?client_id=%s&client_secret=%s&grant_type=%s&refresh_token=%s"
+	defaultTimeout      = 5 * time.Second
 )
 
 // Client is a raindrop client
 type Client struct {
-	baseURL      *url.URL
+	apiURL       *url.URL
+	authURL      *url.URL
 	httpClient   *http.Client
 	accessToken  string
-	ClientId     string
-	ClientSecret string
-	RedirectUri  string
+	clientId     string
+	clientSecret string
+	redirectUri  string
+	clientCode   string
+	refreshToken string
 }
 
-type authorizeRequest struct {
-	RedirectUri string `json:"redirect_uri"`
-	ClientId    string `json:"client_id"`
+type AccessTokenResponse struct {
+	AccessToken  string `json:"access_token,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	Expires      int    `json:"expires,omitempty"`
+	ExpiresIn    int    `json:"expires_in,omitempty"`
+	TokenType    string `json:"token_type,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
-
-/*type authorizeResponse struct {
-	Code  string `json:"code"`
-	Error string `json:"error"`
-}*/
-
-type accessTokenRequest struct {
-	Code         string `json:"code"`
-	ClientId     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	RedirectUri  string `json:"redirect_uri"`
-	GrantType    string `json:"grant_type"`
-}
-
-/*type accessTokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	Expires      int    `json:"expires"`
-	ExpiresIn    int    `json:"expires_in"`
-	TokenType    string `json:"token_type"`
-	Error        string `json:"error"`
-}*/
 
 // Collection represents get collections api response item
 type Collection struct {
@@ -114,31 +94,41 @@ type Tags struct {
 }
 
 // NewClient creates Raindrop Client
-func NewClient(accessToken string) (*Client, error) {
-	if accessToken == "" {
-		return nil, errors.New("access token is empty")
+func NewClient(clientId string, clientSecret string, redirectUri string) (*Client, error) {
+	auth, err := url.Parse(authHost)
+	if err != nil {
+		return nil, err
 	}
-	u, err := url.Parse(host)
+	api, err := url.Parse(apiHost)
 	if err != nil {
 		return nil, err
 	}
 
 	client := Client{
-		baseURL: u,
+		apiURL:  api,
+		authURL: auth,
 		httpClient: &http.Client{
 			Timeout: defaultTimeout,
 		},
-		accessToken: accessToken,
+		clientId:     clientId,
+		clientSecret: clientSecret,
+		redirectUri:  redirectUri,
 	}
 
 	return &client, nil
 }
 
+func (c *Client) SetAccessToken(accessToken string) {
+	c.accessToken = accessToken
+}
+
 // GetCollections call Get root collections API.
 // Reference: https://developer.raindrop.io/v1/collections/methods#get-root-collections
 func (c *Client) GetCollections() (*Collections, error) {
-	uri := "/rest/v1/collections"
-	req, err := c.newRequest("GET", uri)
+	u := *c.apiURL
+	u.Path = path.Join(c.apiURL.Path, "/rest/v1/collections")
+
+	req, err := c.newRequest("GET", u)
 	if err != nil {
 		return nil, err
 	}
@@ -159,8 +149,10 @@ func (c *Client) GetCollections() (*Collections, error) {
 // GetRaindrops call Get raindrops API.
 // Reference: https://developer.raindrop.io/v1/raindrops/multiple#get-raindrops
 func (c *Client) GetRaindrops(collectionID string, perpage int) (*Raindrops, error) {
-	uri := fmt.Sprintf("/rest/v1/raindrops/%s", collectionID)
-	req, err := c.newRequest("GET", uri)
+	u := *c.apiURL
+	u.Path = path.Join(c.apiURL.Path, "/rest/v1/raindrops/", collectionID)
+
+	req, err := c.newRequest("GET", u)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +177,9 @@ func (c *Client) GetRaindrops(collectionID string, perpage int) (*Raindrops, err
 // GetTags calls Get tags API.
 // Reference: https://developer.raindrop.io/v1/tags#get-tags
 func (c *Client) GetTags() (*Tags, error) {
-	uri := "/rest/v1/tags"
-	request, err := c.newRequest("GET", uri)
+	u := *c.apiURL
+	u.Path = path.Join(c.apiURL.Path, "/rest/v1/tags")
+	request, err := c.newRequest("GET", u)
 	if err != nil {
 		return nil, err
 	}
@@ -209,8 +202,9 @@ func (c *Client) GetTags() (*Tags, error) {
 //
 // Reference: https://developer.raindrop.io/v1/raindrops/multiple#search-parameter
 func (c *Client) GetTaggedRaindrops(tag string) (*Raindrops, error) {
-	uri := "/rest/v1/raindrops/0"
-	request, err := c.newRequest("GET", uri)
+	u := *c.apiURL
+	u.Path = path.Join(c.apiURL.Path, "/rest/v1/raindrops/0")
+	request, err := c.newRequest("GET", u)
 	if err != nil {
 		return nil, err
 	}
@@ -233,65 +227,105 @@ func (c *Client) GetTaggedRaindrops(tag string) (*Raindrops, error) {
 	return r, nil
 }
 
-func (c *Client) GetAccessToken(ctx context.Context) (string, error) {
-
-	code, err := c.getUserCode(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	exchInput := &accessTokenRequest{
-		Code:         code,
-		ClientId:     c.ClientId,
-		ClientSecret: c.ClientSecret,
-		RedirectUri:  c.RedirectUri,
-		GrantType:    code,
-	}
-
-	values, err := c.doHTTP(ctx, endpointTokenExchange, exchInput)
-	if err != nil {
-		return "", err
-	}
-
-	accessToken := values.Get("access_token")
-	return accessToken, nil
+// GetAuthorizationURL returns URL for user to authorize app
+func (c *Client) GetAuthorizationURL() (string, error) {
+	u := c.authURL
+	uri := fmt.Sprintf(authorizeUri, c.redirectUri, c.clientId)
+	u.Path = path.Join(uri)
+	return url.QueryUnescape(u.String())
 }
 
-func (c *Client) getUserCode(ctx context.Context) (string, error) {
-	authInput := &authorizeRequest{
-		RedirectUri: c.RedirectUri,
-		ClientId:    c.ClientId,
-	}
+// GetAccessToken exchanges user's authorization code to access token
+func (c *Client) GetAccessToken() (*AccessTokenResponse, error) {
+	fullUrl := c.getTokenUrl(false)
 
-	values, err := c.doHTTP(ctx, endpointAuthorize, authInput)
+	request, err := c.newRequest(http.MethodPost, fullUrl)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	code := values.Get("code")
-	reqErr := values.Get("error")
-	if reqErr != "" || code == "" {
-		return "", errors.New("empty code in redirect request, error is " + reqErr)
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	result := new(AccessTokenResponse)
+	err = parseResponse(response, 200, &result)
+	if err != nil {
+		return nil, err
 	}
 
-	return code, nil
+	return result, nil
+}
+
+// RefreshAccessToken refreshes expired token
+func (c *Client) RefreshAccessToken() error {
+	fullUrl := c.getTokenUrl(true)
+
+	request, err := c.newRequest(http.MethodPost, fullUrl)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return err
+	}
+	result := new(AccessTokenResponse)
+	err = parseResponse(response, 200, &result)
+	if err != nil {
+		return err
+	}
+
+	c.accessToken = result.AccessToken
+	c.refreshToken = result.RefreshToken
+	return nil
+}
+
+func (c *Client) GetUserCodeHandler(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		return
+	}
+	_, err := fmt.Fprintf(w, "<h1>You've been authorized</h1><p>%s</p>", code)
+	if err != nil {
+		return
+	}
+	c.clientCode = code
+	fmt.Println(c.clientCode)
+}
+
+func (c *Client) GetCode() string {
+	return c.clientCode
+}
+
+func (c *Client) getTokenUrl(isRefresh bool) url.URL {
+	u := *c.authURL
+	if isRefresh {
+		refresh := fmt.Sprintf(refreshTokenUri, c.clientId, c.clientSecret, "refresh_token", c.refreshToken)
+		u.Path = path.Join(refresh)
+
+	}
+	access := fmt.Sprintf(accessTokenUri, c.clientCode, c.clientId, c.clientSecret, c.redirectUri, "authorization_code")
+	u.Path = path.Join(access)
+	testUrl, _ := url.QueryUnescape(u.String())
+	fmt.Printf("Get access token URL: %s\n", testUrl)
+	return u
 }
 
 func createSingleSearchParameter(k, v string) string {
 	return fmt.Sprintf(`[{"key":"%s","val":"%s"}]`, k, v)
 }
 
-func (c *Client) newRequest(method string, apiPath string) (*http.Request, error) {
-	u := *c.baseURL
-	u.Path = path.Join(c.baseURL.Path, apiPath)
-
-	req, err := http.NewRequest(method, u.String(), nil)
+func (c *Client) newRequest(httpMethod string, fullUrl url.URL) (*http.Request, error) {
+	req, err := http.NewRequest(httpMethod, fullUrl.String(), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	bearerToken := fmt.Sprintf("Bearer %s", c.accessToken)
-	req.Header.Add("Authorization", bearerToken)
+	if c.accessToken != "" {
+		bearerToken := fmt.Sprintf("Bearer %s", c.accessToken)
+		req.Header.Add("Authorization", bearerToken)
+	}
 
 	return req, nil
 }
@@ -302,23 +336,18 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 	}()
 
 	if response.StatusCode != expectedStatus {
-		return fmt.Errorf("Unexpected Status Code: %d", response.StatusCode)
+		return fmt.Errorf("unexpected Status Code: %d", response.StatusCode)
 	}
+
 	return json.NewDecoder(response.Body).Decode(clazz)
 }
 
-func (c *Client) doHTTP(ctx context.Context, endpoint string, body interface{}) (url.Values, error) {
-	b, err := json.Marshal(body)
-	if err != nil {
-		return url.Values{}, errors.WithMessage(err, "failed to marshal input body")
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, host+endpoint, bytes.NewBuffer(b))
+// In development
+/*func (c *Client) doCodeReq(httpMethod string, endpoint string) (url.Values, error) {
+	req, err := http.NewRequest(httpMethod, endpoint, nil)
 	if err != nil {
 		return url.Values{}, errors.WithMessage(err, "failed to create new request")
 	}
-
-	req.Header.Set("Content-Type", "application/json; charset=UTF8")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -328,7 +357,7 @@ func (c *Client) doHTTP(ctx context.Context, endpoint string, body interface{}) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		err := fmt.Sprintf("API Error: %s", resp.Header.Get(xErrorHeader))
+		err := fmt.Sprint("API Error")
 		return url.Values{}, errors.New(err)
 	}
 
@@ -343,4 +372,4 @@ func (c *Client) doHTTP(ctx context.Context, endpoint string, body interface{}) 
 	}
 
 	return values, nil
-}
+}*/
