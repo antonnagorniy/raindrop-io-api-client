@@ -6,8 +6,6 @@ package raindrop
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -344,7 +342,8 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 	return json.NewDecoder(response.Body).Decode(clazz)
 }
 
-func (c *Client) doCodeReq(httpMethod string, endpoint string) (url.Values, error) {
+// In development
+/*func (c *Client) doCodeReq(httpMethod string, endpoint string) (url.Values, error) {
 	req, err := http.NewRequest(httpMethod, endpoint, nil)
 	if err != nil {
 		return url.Values{}, errors.WithMessage(err, "failed to create new request")
@@ -373,4 +372,4 @@ func (c *Client) doCodeReq(httpMethod string, endpoint string) (url.Values, erro
 	}
 
 	return values, nil
-}
+}*/
