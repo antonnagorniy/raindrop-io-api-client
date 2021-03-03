@@ -15,6 +15,7 @@ import (
 	"github.com/kattaris/errhand"
 	"github.com/kattaris/raindrop-io-api-client/pkg/raindrop"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -46,22 +47,24 @@ func main() {
 	log.HandleError(err, true)
 
 	// Step 2: The redirection to your application site
-	err = openBrowser(authUrl)
+	u, err := url.QueryUnescape(authUrl.String())
+	log.HandleError(err, true)
+	err = openBrowser(u)
 	log.HandleError(err, true)
 
 	// Step 3: The token exchange
-	for client.GetCode() == "" {
+	for client.ClientCode == "" {
 		log.Infoln("Waiting for client to authorize")
 		time.Sleep(3 * time.Second)
 	}
 
-	accessTokenResp, err := client.GetAccessToken()
+	accessTokenResp, err := client.GetAccessToken(client.ClientCode)
 	log.HandleError(err, true)
-	log.Infof("Access token: %s\n", accessTokenResp.AccessToken)
+	accessToken := accessTokenResp.AccessToken
 
-	collections, err := client.GetCollections()
+	collections, err := client.GetCollections(accessToken)
 	log.HandleError(err, false)
-
+	fmt.Printf("Collections: %v", collections)
 	collection := collections.Items[0]
 	log.Infoln(collection.Title)
 }
@@ -80,9 +83,10 @@ func openBrowser(url string) error {
 	}
 
         if err != nil {
-            log.Errorln(err)
-        }
+		log.Errorln(err)
+	}
 
         return err
 }
+
 ```
