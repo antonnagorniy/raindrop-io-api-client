@@ -118,17 +118,13 @@ func NewClient(clientId string, clientSecret string, redirectUri string) (*Clien
 	return &client, nil
 }
 
-func (c *Client) SetAccessToken(accessToken string) {
-	c.accessToken = accessToken
-}
-
 // GetCollections call Get root collections API.
 // Reference: https://developer.raindrop.io/v1/collections/methods#get-root-collections
 func (c *Client) GetCollections() (*Collections, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, "/rest/v1/collections")
 
-	req, err := c.newRequest("GET", u)
+	req, err := c.newRequest(http.MethodGet, u)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +148,7 @@ func (c *Client) GetRaindrops(collectionID string, perpage int) (*Raindrops, err
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, "/rest/v1/raindrops/", collectionID)
 
-	req, err := c.newRequest("GET", u)
+	req, err := c.newRequest(http.MethodGet, u)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +175,7 @@ func (c *Client) GetRaindrops(collectionID string, perpage int) (*Raindrops, err
 func (c *Client) GetTags() (*Tags, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, "/rest/v1/tags")
-	request, err := c.newRequest("GET", u)
+	request, err := c.newRequest(http.MethodGet, u)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +200,7 @@ func (c *Client) GetTags() (*Tags, error) {
 func (c *Client) GetTaggedRaindrops(tag string) (*Raindrops, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, "/rest/v1/raindrops/0")
-	request, err := c.newRequest("GET", u)
+	request, err := c.newRequest(http.MethodGet, u)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +233,7 @@ func (c *Client) GetAuthorizationURL() (string, error) {
 
 // GetAccessToken exchanges user's authorization code to access token
 func (c *Client) GetAccessToken() (*AccessTokenResponse, error) {
-	fullUrl := c.getTokenUrl(false)
+	fullUrl := c.getAccessTokenUrl(false)
 
 	request, err := c.newRequest(http.MethodPost, fullUrl)
 	if err != nil {
@@ -259,7 +255,7 @@ func (c *Client) GetAccessToken() (*AccessTokenResponse, error) {
 
 // RefreshAccessToken refreshes expired token
 func (c *Client) RefreshAccessToken() error {
-	fullUrl := c.getTokenUrl(true)
+	fullUrl := c.getAccessTokenUrl(true)
 
 	request, err := c.newRequest(http.MethodPost, fullUrl)
 	if err != nil {
@@ -298,17 +294,16 @@ func (c *Client) GetCode() string {
 	return c.clientCode
 }
 
-func (c *Client) getTokenUrl(isRefresh bool) url.URL {
+func (c *Client) getAccessTokenUrl(isRefresh bool) url.URL {
 	u := *c.authURL
 	if isRefresh {
-		refresh := fmt.Sprintf(refreshTokenUri, c.clientId, c.clientSecret, "refresh_token", c.refreshToken)
+		refresh := fmt.Sprintf(refreshTokenUri, c.clientId,
+			c.clientSecret, "refresh_token", c.refreshToken)
 		u.Path = path.Join(refresh)
-
 	}
-	access := fmt.Sprintf(accessTokenUri, c.clientCode, c.clientId, c.clientSecret, c.redirectUri, "authorization_code")
+	access := fmt.Sprintf(accessTokenUri, c.clientCode,
+		c.clientId, c.clientSecret, c.redirectUri, "authorization_code")
 	u.Path = path.Join(access)
-	testUrl, _ := url.QueryUnescape(u.String())
-	fmt.Printf("Get access token URL: %s\n", testUrl)
 	return u
 }
 
@@ -317,11 +312,16 @@ func createSingleSearchParameter(k, v string) string {
 }
 
 func (c *Client) newRequest(httpMethod string, fullUrl url.URL) (*http.Request, error) {
-	req, err := http.NewRequest(httpMethod, fullUrl.String(), nil)
+	u, err := url.QueryUnescape(fullUrl.String())
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("Get access token URL: %s\n", u)
+	req, err := http.NewRequest(httpMethod, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json")
 	if c.accessToken != "" {
 		bearerToken := fmt.Sprintf("Bearer %s", c.accessToken)
 		req.Header.Add("Authorization", bearerToken)
@@ -341,35 +341,3 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 
 	return json.NewDecoder(response.Body).Decode(clazz)
 }
-
-// In development
-/*func (c *Client) doCodeReq(httpMethod string, endpoint string) (url.Values, error) {
-	req, err := http.NewRequest(httpMethod, endpoint, nil)
-	if err != nil {
-		return url.Values{}, errors.WithMessage(err, "failed to create new request")
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return url.Values{}, errors.WithMessage(err, "failed to send http request")
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		err := fmt.Sprint("API Error")
-		return url.Values{}, errors.New(err)
-	}
-
-	respB, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return url.Values{}, errors.WithMessage(err, "failed to read request body")
-	}
-
-	values, err := url.ParseQuery(string(respB))
-	if err != nil {
-		return url.Values{}, errors.WithMessage(err, "failed to parse response body")
-	}
-
-	return values, nil
-}*/
