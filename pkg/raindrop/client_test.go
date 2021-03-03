@@ -15,14 +15,14 @@ func Test_NewClient(t *testing.T) {
 		t.Errorf("error: %v", err)
 	}
 
-	actual.accessToken = "access-token"
+	accessToken := "access-token"
 	actualURL := actual.apiURL.String()
 	expectedURL := "https://api.raindrop.io"
 	if actualURL != expectedURL {
 		t.Errorf("assert failed. expect:%s actual:%s", expectedURL, actualURL)
 	}
 
-	actualAccessToken := actual.accessToken
+	actualAccessToken := accessToken
 	expectedAccessToken := "access-token"
 	if actualURL != expectedURL {
 		t.Errorf("assert failed. expect:%s actual:%s", expectedAccessToken, actualAccessToken)
@@ -62,7 +62,7 @@ func Test_GetRaindrops(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetRaindrops("1", 50)
+	actual, err := sut.GetRaindrops("access-token", "1", 50)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -111,7 +111,7 @@ func Test_GetCollections(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetCollections()
+	actual, err := sut.GetCollections("access-token")
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -160,7 +160,7 @@ func Test_GetTags(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetTags()
+	actual, err := sut.GetTags("access-token")
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -211,7 +211,7 @@ func Test_GetTaggedRaindrops(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetTaggedRaindrops(tag)
+	actual, err := sut.GetTaggedRaindrops("access-token", tag)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -236,8 +236,7 @@ func createTestClient(ts *httptest.Server, t *testing.T) Client {
 	}
 
 	return Client{
-		apiURL:      u,
-		httpClient:  &http.Client{},
-		accessToken: "",
+		apiURL:     u,
+		httpClient: &http.Client{},
 	}
 }
