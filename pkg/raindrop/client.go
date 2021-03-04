@@ -246,12 +246,7 @@ func (c *Client) GetAuthorizationURL() (url.URL, error) {
 	return *u, nil
 }
 
-func (c *Client) GetUserAuthCode() (string, error) {
-	authURL, err := c.GetAuthorizationURL()
-	if err != nil {
-		return "", err
-	}
-
+func (c *Client) GetUserAuthCode(authURL url.URL) (string, error) {
 	req, err := c.newRequest("", http.MethodGet, authURL, nil)
 	if err != nil {
 		return "", err
@@ -262,7 +257,9 @@ func (c *Client) GetUserAuthCode() (string, error) {
 		return "", err
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		err := fmt.Sprintf("user authorization failed: %s", resp.Status)
