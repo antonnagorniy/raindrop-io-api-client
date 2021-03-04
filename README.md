@@ -2,7 +2,8 @@
 ## Work in progress
 
 [![Actions Status](https://github.com/kattaris/raindrop-io-api-client/workflows/CI/badge.svg)](https://github.com/kattaris/raindrop-io-api-client/actions)
-[![Coverage Status](https://codecov.io/github/kattaris/raindrop-io-api-client/coverage.svg?branch=master)](https://github.com/kattaris/raindrop-io-api-client/actions)
+[![Coverage Status](https://codecov.io/github/kattaris/raindrop-io-api-client/coverage.svg?branch=master)](https://codecov.io/gh/kattaris/raindrop-io-api-client)
+[![Releases](https://img.shields.io/github/v/release/kattaris/raindrop-io-api-client.svg?include_prereleases&style=flat-square)](https://github.com/kattaris/raindrop-io-api-client/releases)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ### Example usage:
