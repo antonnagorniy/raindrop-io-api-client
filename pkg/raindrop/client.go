@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 	"time"
 )
 
@@ -427,7 +428,6 @@ func (c *Client) GetAuthorizationCodeHandler(w http.ResponseWriter, r *http.Requ
 	code, err := c.GetAuthorizationCode(r)
 	if err != nil {
 		fmt.Println(err)
-		return
 	}
 
 	_, err = fmt.Fprintf(w, "<h1>You've been authorized</h1><p>%s</p>", code)
@@ -440,9 +440,12 @@ func (c *Client) GetAuthorizationCodeHandler(w http.ResponseWriter, r *http.Requ
 func (c *Client) GetAuthorizationCode(r *http.Request) (string, error) {
 	code := r.URL.Query().Get("code")
 	authErr := r.URL.Query().Get("error")
-	if code == "" {
+	if code == "" && authErr != "" {
 		return "", errors.New("Can't get authorization code: " + authErr)
+	} else if code == "" {
+		return "", errors.New("Can't get authorization code: " + strconv.Itoa(r.Response.StatusCode))
 	}
+
 	return code, nil
 }
 
