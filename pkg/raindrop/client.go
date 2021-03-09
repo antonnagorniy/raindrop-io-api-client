@@ -94,7 +94,7 @@ type createCollectionRequest struct {
 // CreateCollectionResponse represents create collection api response item
 type CreateCollectionResponse struct {
 	Result       bool                    `json:"result"`
-	Item         createCollectionRequest `json:"item"`
+	Item         createCollectionRequest `json:"item,omitempty"`
 	Error        string                  `json:"error,omitempty"`
 	ErrorMessage string                  `json:"errorMessage,omitempty"`
 }
