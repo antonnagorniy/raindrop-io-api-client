@@ -453,7 +453,9 @@ func createSingleSearchParameter(k, v string) string {
 	return fmt.Sprintf(`[{"key":"%s","val":"%s"}]`, k, v)
 }
 
-func (c *Client) newRequest(accessToken string, httpMethod string, fullUrl url.URL, body interface{}) (*http.Request, error) {
+func (c *Client) newRequest(accessToken string, httpMethod string, fullUrl url.URL,
+	body interface{}) (*http.Request, error) {
+
 	u, err := url.QueryUnescape(fullUrl.String())
 	if err != nil {
 		return nil, err
@@ -488,7 +490,9 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 	}()
 
 	if response.StatusCode != expectedStatus && response.StatusCode != 400 {
-		return fmt.Errorf("unexpected Status Code: %d", response.StatusCode)
+		err := fmt.Errorf("unexpected Status Code: %d", response.StatusCode)
+		fmt.Printf("Can't parse response" + err.Error())
+		return err
 	}
 
 	return json.NewDecoder(response.Body).Decode(clazz)
