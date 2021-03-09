@@ -63,9 +63,14 @@ func main() {
 	log.HandleError(err, true)
 	accessToken := accessTokenResp.AccessToken
 
+    newColl, err := client.CreateCollection(accessToken, "list",
+		"Test", 1, false, 0, nil)
+	log.HandleError(err, false)
+
 	collections, err := client.GetCollections(accessToken)
 	log.HandleError(err, false)
-	fmt.Printf("Collections: %v", collections)
+	
+        fmt.Printf("Collections: %v", collections)
 	collection := collections.Items[0]
 	log.Infoln(collection.Title)
 }

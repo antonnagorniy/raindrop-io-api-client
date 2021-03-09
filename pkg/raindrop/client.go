@@ -16,12 +16,20 @@ import (
 )
 
 const (
-	apiHost             = "https://api.raindrop.io"
-	authHost            = "https://raindrop.io"
+	apiHost  = "https://api.raindrop.io"
+	authHost = "https://raindrop.io"
+
 	endpointAuthorize   = "/oauth/authorize"
-	endpointAccessToken = "/oauth/access_token"
 	authorizeUri        = endpointAuthorize + "?redirect_uri=%s&client_id=%s"
-	defaultTimeout      = 5 * time.Second
+	endpointAccessToken = "/oauth/access_token"
+
+	endpointGetCollections   = "/rest/v1/collections"
+	endpointCreateCollection = "/rest/v1/collection"
+
+	endpointRaindrops = "/rest/v1/raindrops/"
+	endpointTags      = "/rest/v1/tags"
+
+	defaultTimeout = 5 * time.Second
 )
 
 // Client is a raindrop client
@@ -71,6 +79,23 @@ type Collection struct {
 	Public     bool   `json:"public"`
 	Title      string `json:"title"`
 	View       string `json:"view"`
+}
+
+type createCollectionRequest struct {
+	View     string   `json:"view,omitempty"`
+	Title    string   `json:"title,omitempty"`
+	Sort     int      `json:"sort,omitempty"`
+	Public   bool     `json:"public,omitempty"`
+	ParentId uint32   `json:"parent.$id,omitempty"`
+	Cover    []string `json:"cover,omitempty"`
+}
+
+// CreateCollectionResponse represents create collection api response item
+type CreateCollectionResponse struct {
+	Result       bool                    `json:"result"`
+	Item         createCollectionRequest `json:"item"`
+	Error        string                  `json:"error,omitempty"`
+	ErrorMessage string                  `json:"errorMessage,omitempty"`
 }
 
 // Collections represents get collections api response
@@ -137,7 +162,7 @@ func NewClient(clientId string, clientSecret string, redirectUri string) (*Clien
 // Reference: https://developer.raindrop.io/v1/collections/methods#get-root-collections
 func (c *Client) GetCollections(accessToken string) (*Collections, error) {
 	u := *c.apiURL
-	u.Path = path.Join(c.apiURL.Path, "/rest/v1/collections")
+	u.Path = path.Join(c.apiURL.Path, endpointGetCollections)
 
 	req, err := c.newRequest(accessToken, http.MethodGet, u, nil)
 	if err != nil {
@@ -161,7 +186,7 @@ func (c *Client) GetCollections(accessToken string) (*Collections, error) {
 // Reference: https://developer.raindrop.io/v1/raindrops/multiple#get-raindrops
 func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage int) (*Raindrops, error) {
 	u := *c.apiURL
-	u.Path = path.Join(c.apiURL.Path, "/rest/v1/raindrops/", collectionID)
+	u.Path = path.Join(c.apiURL.Path, endpointRaindrops, collectionID)
 
 	req, err := c.newRequest(accessToken, http.MethodGet, u, nil)
 	if err != nil {
@@ -189,7 +214,7 @@ func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage i
 // Reference: https://developer.raindrop.io/v1/tags#get-tags
 func (c *Client) GetTags(accessToken string) (*Tags, error) {
 	u := *c.apiURL
-	u.Path = path.Join(c.apiURL.Path, "/rest/v1/tags")
+	u.Path = path.Join(c.apiURL.Path, endpointTags)
 	request, err := c.newRequest(accessToken, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
@@ -214,7 +239,7 @@ func (c *Client) GetTags(accessToken string) (*Tags, error) {
 // Reference: https://developer.raindrop.io/v1/raindrops/multiple#search-parameter
 func (c *Client) GetTaggedRaindrops(accessToken string, tag string) (*Raindrops, error) {
 	u := *c.apiURL
-	u.Path = path.Join(c.apiURL.Path, "/rest/v1/raindrops/0")
+	u.Path = path.Join(c.apiURL.Path, endpointRaindrops+"0")
 	request, err := c.newRequest(accessToken, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
@@ -246,6 +271,7 @@ func (c *Client) GetAuthorizationURL() (url.URL, error) {
 	return *u, nil
 }
 
+// GetUserAuthCode returns authorization code
 func (c *Client) GetUserAuthCode(authURL url.URL) (string, error) {
 	req, err := c.newRequest("", http.MethodGet, authURL, nil)
 	if err != nil {
@@ -349,17 +375,75 @@ func (c *Client) RefreshAccessToken(refreshToken string) (*AccessTokenResponse, 
 	return result, nil
 }
 
-func (c *Client) GetUserCodeHandler(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		return
+// CreateCollection creates new Collection
+// Reference: https://developer.raindrop.io/v1/collections/methods#create-collection
+func (c *Client) CreateCollection(accessToken string, view string, title string, sort int,
+	public bool, parentId uint32, cover []string) (*CreateCollectionResponse, error) {
+
+	fullUrl := *c.apiURL
+	fullUrl.Path = path.Join(endpointCreateCollection)
+
+	var collection createCollectionRequest
+
+	if parentId == 0 {
+		collection = createCollectionRequest{
+			View:   view,
+			Title:  title,
+			Sort:   sort,
+			Public: public,
+			Cover:  cover,
+		}
+	} else {
+		collection = createCollectionRequest{
+			View:     view,
+			Title:    title,
+			Sort:     sort,
+			Public:   public,
+			ParentId: parentId,
+			Cover:    cover,
+		}
 	}
-	_, err := fmt.Fprintf(w, "<h1>You've been authorized</h1><p>%s</p>", code)
+
+	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, collection)
 	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	result := new(CreateCollectionResponse)
+	err = parseResponse(response, 200, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (c *Client) GetAuthorizationCodeHandler(w http.ResponseWriter, r *http.Request) {
+	code, err := c.GetAuthorizationCode(r)
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
-	fmt.Println(code)
+
+	_, err = fmt.Fprintf(w, "<h1>You've been authorized</h1><p>%s</p>", code)
+	if err != nil {
+		fmt.Println(err)
+	}
 	c.ClientCode = code
+}
+
+func (c *Client) GetAuthorizationCode(r *http.Request) (string, error) {
+	code := r.URL.Query().Get("code")
+	authErr := r.URL.Query().Get("error")
+	if code == "" {
+		return "", errors.New("Can't get authorization code: " + authErr)
+	}
+	return code, nil
 }
 
 func createSingleSearchParameter(k, v string) string {
@@ -400,7 +484,7 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 		_ = response.Body.Close()
 	}()
 
-	if response.StatusCode != expectedStatus {
+	if response.StatusCode != expectedStatus && response.StatusCode != 400 {
 		return fmt.Errorf("unexpected Status Code: %d", response.StatusCode)
 	}
 
