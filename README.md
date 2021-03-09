@@ -63,7 +63,7 @@ func main() {
 	log.HandleError(err, true)
 	accessToken := accessTokenResp.AccessToken
 
-    newColl, err := client.CreateCollection(accessToken, "list",
+        newColl, err := client.CreateCollection(accessToken, "list",
 		"Test", 1, false, 0, nil)
 	log.HandleError(err, false)
 
