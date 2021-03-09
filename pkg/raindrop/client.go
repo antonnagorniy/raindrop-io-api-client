@@ -393,14 +393,15 @@ func (c *Client) CreateCollection(accessToken string, view string, title string,
 			Public: public,
 			Cover:  cover,
 		}
-	}
-	collection = createCollectionRequest{
-		View:     view,
-		Title:    title,
-		Sort:     sort,
-		Public:   public,
-		ParentId: parentId,
-		Cover:    cover,
+	} else {
+		collection = createCollectionRequest{
+			View:     view,
+			Title:    title,
+			Sort:     sort,
+			Public:   public,
+			ParentId: parentId,
+			Cover:    cover,
+		}
 	}
 
 	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, collection)
