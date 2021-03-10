@@ -233,7 +233,7 @@ func (c *Client) GetChildCollections(accessToken string) (*GetCollectionsRespons
 	return result, nil
 }
 
-// GetCollection call Get child collections API.
+// GetCollection call Get collection API.
 // Reference: https://developer.raindrop.io/v1/collections/methods#get-collection
 func (c Client) GetCollection(accessToken string, id uint32) (*GetCollectionResponse, error) {
 	u := *c.apiURL
