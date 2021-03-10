@@ -25,6 +25,7 @@ const (
 
 	endpointGetRootCollections  = "/rest/v1/collections"
 	endpointGetChildCollections = "/rest/v1/collections/childrens"
+	endpointGetCollection       = "/rest/v1/collection/"
 	endpointCreateCollection    = "/rest/v1/collection"
 
 	endpointRaindrops = "/rest/v1/raindrops/"
@@ -124,6 +125,12 @@ type GetCollectionsResponse struct {
 	Items  []Collection `json:"items"`
 }
 
+// GetCollectionResponse represents get collection by id api response
+type GetCollectionResponse struct {
+	Result bool       `json:"result"`
+	Item   Collection `json:"item"`
+}
+
 // Raindrop represents get raindrops api response item
 type Raindrop struct {
 	Tags    []string `json:"tags"`
@@ -220,6 +227,78 @@ func (c *Client) GetChildCollections(accessToken string) (*GetCollectionsRespons
 
 	result := new(GetCollectionsResponse)
 	if err = parseResponse(resp, 200, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// GetCollection call Get child collections API.
+// Reference: https://developer.raindrop.io/v1/collections/methods#get-collection
+func (c Client) GetCollection(accessToken string, id uint32) (*GetCollectionResponse, error) {
+	u := *c.apiURL
+	u.Path = path.Join(c.apiURL.Path, endpointGetCollection+strconv.Itoa(int(id)))
+
+	req, err := c.newRequest(accessToken, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	result := new(GetCollectionResponse)
+	if err = parseResponse(resp, 200, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// CreateCollection creates new Collection
+// Reference: https://developer.raindrop.io/v1/collections/methods#create-collection
+func (c *Client) CreateCollection(accessToken string, isRoot bool, view string, title string, sort int,
+	public bool, parentId uint32, cover []string) (*CreateCollectionResponse, error) {
+
+	fullUrl := *c.apiURL
+	fullUrl.Path = path.Join(endpointCreateCollection)
+
+	var collection createCollectionRequest
+
+	if isRoot {
+		collection = createCollectionRequest{
+			View:   view,
+			Title:  title,
+			Sort:   sort,
+			Public: public,
+			Cover:  cover,
+		}
+	} else {
+		collection = createCollectionRequest{
+			View:     view,
+			Title:    title,
+			Sort:     sort,
+			Public:   public,
+			ParentId: parentId,
+			Cover:    cover,
+		}
+	}
+
+	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, collection)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	result := new(CreateCollectionResponse)
+	err = parseResponse(response, 200, &result)
+	if err != nil {
 		return nil, err
 	}
 
@@ -371,54 +450,6 @@ func (c *Client) RefreshAccessToken(refreshToken string) (*AccessTokenResponse, 
 		return nil, err
 	}
 	result := new(AccessTokenResponse)
-	err = parseResponse(response, 200, &result)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-// CreateCollection creates new Collection
-// Reference: https://developer.raindrop.io/v1/collections/methods#create-collection
-func (c *Client) CreateCollection(accessToken string, isRoot bool, view string, title string, sort int,
-	public bool, parentId uint32, cover []string) (*CreateCollectionResponse, error) {
-
-	fullUrl := *c.apiURL
-	fullUrl.Path = path.Join(endpointCreateCollection)
-
-	var collection createCollectionRequest
-
-	if isRoot {
-		collection = createCollectionRequest{
-			View:   view,
-			Title:  title,
-			Sort:   sort,
-			Public: public,
-			Cover:  cover,
-		}
-	} else {
-		collection = createCollectionRequest{
-			View:     view,
-			Title:    title,
-			Sort:     sort,
-			Public:   public,
-			ParentId: parentId,
-			Cover:    cover,
-		}
-	}
-
-	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, collection)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		return nil, err
-	}
-
-	result := new(CreateCollectionResponse)
 	err = parseResponse(response, 200, &result)
 	if err != nil {
 		return nil, err
