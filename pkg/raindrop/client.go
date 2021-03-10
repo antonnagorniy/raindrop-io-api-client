@@ -54,6 +54,7 @@ type AccessTokenResponse struct {
 	Error        string `json:"error,omitempty"`
 }
 
+// accessTokenRequest represents the token exchange api request item
 type accessTokenRequest struct {
 	Code         string `json:"code"`
 	ClientID     string `json:"client_id"`
@@ -62,6 +63,7 @@ type accessTokenRequest struct {
 	GrantType    string `json:"grant_type"`
 }
 
+// refreshTokenRequest represents the token refresh api request item
 type refreshTokenRequest struct {
 	ClientId     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
@@ -69,6 +71,7 @@ type refreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// createCollectionRequest represents create collection api request item
 type createCollectionRequest struct {
 	View     string   `json:"view,omitempty"`
 	Title    string   `json:"title,omitempty"`
@@ -424,6 +427,7 @@ func (c *Client) CreateCollection(accessToken string, isRoot bool, view string, 
 	return result, nil
 }
 
+// GetAuthorizationCodeHandler handles redirect request from raindrop's authorization page
 func (c *Client) GetAuthorizationCodeHandler(w http.ResponseWriter, r *http.Request) {
 	code, err := c.GetAuthorizationCode(r)
 	if err != nil {
@@ -437,6 +441,9 @@ func (c *Client) GetAuthorizationCodeHandler(w http.ResponseWriter, r *http.Requ
 	c.ClientCode = code
 }
 
+// GetAuthorizationCode returns authorization code or an error from raindrop's
+// redirect request
+// Reference: https://developer.raindrop.io/v1/authentication/token#step-2-the-redirection-to-your-application-site
 func (c *Client) GetAuthorizationCode(r *http.Request) (string, error) {
 	code := r.URL.Query().Get("code")
 	authErr := r.URL.Query().Get("error")
