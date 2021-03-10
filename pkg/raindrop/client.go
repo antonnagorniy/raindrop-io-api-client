@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -24,8 +23,9 @@ const (
 	authorizeUri        = endpointAuthorize + "?redirect_uri=%s&client_id=%s"
 	endpointAccessToken = "/oauth/access_token"
 
-	endpointGetCollections   = "/rest/v1/collections"
-	endpointCreateCollection = "/rest/v1/collection"
+	endpointGetRootCollections  = "/rest/v1/collections"
+	endpointGetChildCollections = "/rest/v1/collections/childrens"
+	endpointCreateCollection    = "/rest/v1/collection"
 
 	endpointRaindrops = "/rest/v1/raindrops/"
 	endpointTags      = "/rest/v1/tags"
@@ -69,19 +69,6 @@ type refreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-// Collection represents get collections api response item
-type Collection struct {
-	ID         uint32 `json:"_id"`
-	Color      string `json:"color"`
-	Count      uint32 `json:"count"`
-	Created    string `json:"created"`
-	LastUpdate string `json:"lastUpdate"`
-	Expanded   bool   `json:"expanded"`
-	Public     bool   `json:"public"`
-	Title      string `json:"title"`
-	View       string `json:"view"`
-}
-
 type createCollectionRequest struct {
 	View     string   `json:"view,omitempty"`
 	Title    string   `json:"title,omitempty"`
@@ -99,8 +86,37 @@ type CreateCollectionResponse struct {
 	ErrorMessage string                  `json:"errorMessage,omitempty"`
 }
 
-// Collections represents get collections api response
-type Collections struct {
+// access represents collections access level and drag possibility from collection
+// to another one
+type access struct {
+	Level     int  `json:"level"`
+	Draggable bool `json:"draggable"`
+}
+
+// user represents collection's owner
+type user struct {
+	Id int `json:"$id"`
+}
+
+// Collection represents Raindrop.io collection type
+type Collection struct {
+	ID         uint32   `json:"_id"`
+	Access     access   `json:"access"`
+	Color      string   `json:"color"`
+	Count      uint32   `json:"count"`
+	Cover      []string `json:"cover"`
+	Created    string   `json:"created"`
+	LastUpdate string   `json:"lastUpdate"`
+	ParentId   int      `json:"parent_id,omitempty"`
+	Expanded   bool     `json:"expanded"`
+	Public     bool     `json:"public"`
+	Title      string   `json:"title"`
+	User       user     `json:"user"`
+	View       string   `json:"view"`
+}
+
+// GetCollectionsResponse represents get root and child collections api response
+type GetCollectionsResponse struct {
 	Result bool         `json:"result"`
 	Items  []Collection `json:"items"`
 }
@@ -159,11 +175,11 @@ func NewClient(clientId string, clientSecret string, redirectUri string) (*Clien
 	return &client, nil
 }
 
-// GetCollections call Get root collections API.
+// GetRootCollections call Get root collections API.
 // Reference: https://developer.raindrop.io/v1/collections/methods#get-root-collections
-func (c *Client) GetCollections(accessToken string) (*Collections, error) {
+func (c *Client) GetRootCollections(accessToken string) (*GetCollectionsResponse, error) {
 	u := *c.apiURL
-	u.Path = path.Join(c.apiURL.Path, endpointGetCollections)
+	u.Path = path.Join(c.apiURL.Path, endpointGetRootCollections)
 
 	req, err := c.newRequest(accessToken, http.MethodGet, u, nil)
 	if err != nil {
@@ -175,12 +191,36 @@ func (c *Client) GetCollections(accessToken string) (*Collections, error) {
 		return nil, err
 	}
 
-	r := new(Collections)
+	r := new(GetCollectionsResponse)
 	if err := parseResponse(response, 200, &r); err != nil {
 		return nil, err
 	}
 
 	return r, nil
+}
+
+// GetChildCollections call Get child collections API.
+// Reference: https://developer.raindrop.io/v1/collections/methods#get-child-collections
+func (c *Client) GetChildCollections(accessToken string) (*GetCollectionsResponse, error) {
+	u := *c.apiURL
+	u.Path = path.Join(c.apiURL.Path, endpointGetChildCollections)
+
+	req, err := c.newRequest(accessToken, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	result := new(GetCollectionsResponse)
+	if err = parseResponse(resp, 200, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // GetRaindrops call Get raindrops API.
@@ -272,46 +312,6 @@ func (c *Client) GetAuthorizationURL() (url.URL, error) {
 	return *u, nil
 }
 
-// GetUserAuthCode returns authorization code
-func (c *Client) GetUserAuthCode(authURL url.URL) (string, error) {
-	req, err := c.newRequest("", http.MethodGet, authURL, nil)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		err := fmt.Sprintf("user authorization failed: %s", resp.Status)
-		return "", errors.New(err)
-	}
-
-	respB, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", errors.WithMessage(err, "failed to read request body")
-	}
-
-	values, err := url.ParseQuery(string(respB))
-	if err != nil {
-		return "", errors.WithMessage(err, "failed to parse response body")
-	}
-
-	code := values.Get("code")
-	authError := values.Get("error")
-	if authError != "" {
-		return "", errors.New(authError)
-	}
-
-	return code, nil
-}
-
 // GetAccessToken exchanges user's authorization code to access token
 // Reference: https://developer.raindrop.io/v1/authentication/token#step-3-the-token-exchange
 func (c *Client) GetAccessToken(userCode string) (*AccessTokenResponse, error) {
@@ -378,7 +378,7 @@ func (c *Client) RefreshAccessToken(refreshToken string) (*AccessTokenResponse, 
 
 // CreateCollection creates new Collection
 // Reference: https://developer.raindrop.io/v1/collections/methods#create-collection
-func (c *Client) CreateCollection(accessToken string, view string, title string, sort int,
+func (c *Client) CreateCollection(accessToken string, isRoot bool, view string, title string, sort int,
 	public bool, parentId uint32, cover []string) (*CreateCollectionResponse, error) {
 
 	fullUrl := *c.apiURL
@@ -386,7 +386,7 @@ func (c *Client) CreateCollection(accessToken string, view string, title string,
 
 	var collection createCollectionRequest
 
-	if parentId == 0 {
+	if isRoot {
 		collection = createCollectionRequest{
 			View:   view,
 			Title:  title,

@@ -8,7 +8,7 @@
 
 ### Example usage:
 
-```bigquery
+```
 package main
 
 import (
@@ -32,13 +32,13 @@ func init() {
 }
 
 func main() {
-	client, err := raindrop.NewClient("client_id",
-		"client_secret",
+	client, err := raindrop.NewClient("603648bd22f9958dab62c62f",
+		"e46b6a8a-018d-43b1-8b28-9c4a57c1b202",
 		"http://localhost:8080/oauth")
 	log.HandleError(err, true)
 
 	go func() {
-		http.HandleFunc("/oauth", client.GetUserCodeHandler)
+		http.HandleFunc("/oauth", client.GetAuthorizationCodeHandler)
 		err = http.ListenAndServe(":8080", nil)
 		log.HandleError(err, true)
 	}()
@@ -63,16 +63,20 @@ func main() {
 	log.HandleError(err, true)
 	accessToken := accessTokenResp.AccessToken
 
-        newColl, err := client.CreateCollection(accessToken, "list",
+	// Step 4: Check API's methods
+	result, err := client.CreateCollection(accessToken, true, "list",
 		"Test", 1, false, 0, nil)
 	log.HandleError(err, false)
 
-	collections, err := client.GetCollections(accessToken)
+	fmt.Printf("Create collection result: %v\n", result)
+
+	rootCollections, err := client.GetRootCollections(accessToken)
 	log.HandleError(err, false)
-	
-        fmt.Printf("Collections: %v", collections)
-	collection := collections.Items[0]
-	log.Infoln(collection.Title)
+	fmt.Printf("Root Collections: %v\n", rootCollections)
+
+	childCollections, err := client.GetChildCollections(accessToken)
+	log.HandleError(err, false)
+	fmt.Printf("Child Collections: %v\n", childCollections)
 }
 
 func openBrowser(url string) error {
@@ -88,11 +92,10 @@ func openBrowser(url string) error {
 		err = fmt.Errorf("unsupported platform")
 	}
 
-        if err != nil {
+	if err != nil {
 		log.Errorln(err)
 	}
 
-        return err
+	return err
 }
-
 ```

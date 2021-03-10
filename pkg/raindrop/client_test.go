@@ -117,7 +117,7 @@ func Test_GetCollections(t *testing.T) {
 		ID:    2,
 		Title: "Test 2",
 	}
-	expected := Collections{
+	expected := GetCollectionsResponse{
 		Result: true,
 		Items:  []Collection{collection1, collection2},
 	}
@@ -138,7 +138,7 @@ func Test_GetCollections(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetCollections("access-token")
+	actual, err := sut.GetRootCollections("access-token")
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
