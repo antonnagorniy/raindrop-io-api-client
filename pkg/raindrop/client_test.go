@@ -207,6 +207,51 @@ func Test_GetChildCollections(t *testing.T) {
 	}
 }
 
+func Test_CreateCollection(t *testing.T) {
+	// Given
+	collectionRequest := createCollectionRequest{
+		View:     "list",
+		Title:    "TestColl",
+		Sort:     0,
+		Public:   false,
+		ParentId: 0,
+		Cover:    nil,
+	}
+	expected := CreateCollectionResponse{
+		Result: true,
+		Item:   collectionRequest,
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		res, err := json.Marshal(expected)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(res)
+	}))
+
+	defer ts.Close()
+
+	// When
+	sut := createTestClient(ts, t)
+
+	// Then
+	actual, err := sut.CreateCollection("access-token", true, "list",
+		"TestColl", 0, false, 0, nil)
+	if err != nil {
+		t.Errorf("error: %v", err)
+	}
+	if actual.Result != true {
+		t.Error("actual.Result")
+	}
+	if !reflect.DeepEqual(actual.Item, collectionRequest) {
+		t.Errorf("Unexpected: %v, %v", actual.Item, collectionRequest)
+	}
+}
+
 func Test_GetTags(t *testing.T) {
 	// Given
 	tag1 := Tag{
