@@ -28,6 +28,7 @@ const (
 	endpointGetCollection       = "/rest/v1/collection/"
 	endpointCreateCollection    = "/rest/v1/collection"
 
+	endpointRaindrop  = "/rest/v1/raindrop"
 	endpointRaindrops = "/rest/v1/raindrops/"
 	endpointTags      = "/rest/v1/tags"
 
@@ -102,6 +103,13 @@ type user struct {
 	Id int `json:"$id"`
 }
 
+// media represents cover link
+type media struct {
+	Link string `json:"link"`
+}
+
+type pleaseParse struct{}
+
 // Collection represents Raindrop.io collection type
 type Collection struct {
 	ID         uint32   `json:"_id"`
@@ -133,17 +141,29 @@ type GetCollectionResponse struct {
 
 // Raindrop represents get raindrops api response item
 type Raindrop struct {
-	Tags    []string `json:"tags"`
-	Cover   string   `json:"cover"`
-	Type    string   `json:"type"`
-	HTML    string   `json:"html"`
-	Excerpt string   `json:"excerpt"`
-	Title   string   `json:"title"`
-	Link    string   `json:"link"`
+	PleaseParse pleaseParse `json:"pleaseParse"`
+	Created     string      `json:"created,omitempty"`
+	LastUpdate  string      `json:"lastUpdate,omitempty"`
+	Order       int         `json:"order,omitempty"`
+	Tags        []string    `json:"tags,omitempty"`
+	Media       []media     `json:"media,omitempty"`
+	Cover       string      `json:"cover,omitempty"`
+	Collection  Collection  `json:"collection,omitempty"`
+	Type        string      `json:"type,omitempty"`
+	HTML        string      `json:"html,omitempty"`
+	Excerpt     string      `json:"excerpt,omitempty"`
+	Title       string      `json:"title,omitempty"`
+	Link        string      `json:"link"`
 }
 
-// Raindrops represents get raindrops api response
-type Raindrops struct {
+// SingleRaindropResponse represent single raindrop api response
+type SingleRaindropResponse struct {
+	Result bool     `json:"result"`
+	Items  Raindrop `json:"item"`
+}
+
+// MultiRaindropsResponse represents get multiple raindrops api response
+type MultiRaindropsResponse struct {
 	Result bool       `json:"result"`
 	Items  []Raindrop `json:"items"`
 }
@@ -160,7 +180,7 @@ type Tags struct {
 	Items  []Tag `json:"items"`
 }
 
-// NewClient creates Raindrop Client
+// NewClient creates Raindrop.io client
 func NewClient(clientId string, clientSecret string, redirectUri string) (*Client, error) {
 	auth, err := url.Parse(authHost)
 	if err != nil {
@@ -305,9 +325,55 @@ func (c *Client) CreateCollection(accessToken string, isRoot bool, view string, 
 	return result, nil
 }
 
-// GetRaindrops call Get raindrops API.
+// CreateSimpleRaindrop creates new simple unsorted Raindrop
+// Reference: https://developer.raindrop.io/v1/raindrops/single#create-raindrop
+func (c *Client) CreateSimpleRaindrop(accessToken string, link string) (*SingleRaindropResponse, error) {
+	fullUrl := *c.apiURL
+	fullUrl.Path = path.Join(endpointRaindrop)
+
+	resp, _ := http.Get(link)
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			fmt.Printf("Can't close response's Body in CreateSimpleRaindrop: %v", err)
+		}
+	}()
+
+	title := ""
+	if val, ok := GetHtmlTitle(resp.Body); ok {
+		title = val
+	} else {
+		title = "Fail to get HTML title"
+	}
+
+	raindrop := Raindrop{
+		PleaseParse: pleaseParse{},
+		Title:       title,
+		Link:        link,
+	}
+
+	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, raindrop)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	result := new(SingleRaindropResponse)
+	err = parseResponse(response, 200, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// GetRaindrops call get raindrops API.
 // Reference: https://developer.raindrop.io/v1/raindrops/multiple#get-raindrops
-func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage int) (*Raindrops, error) {
+func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage int) (*MultiRaindropsResponse, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, endpointRaindrops, collectionID)
 
@@ -325,7 +391,7 @@ func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage i
 		return nil, err
 	}
 
-	r := new(Raindrops)
+	r := new(MultiRaindropsResponse)
 	if err := parseResponse(response, 200, &r); err != nil {
 		return nil, err
 	}
@@ -360,7 +426,7 @@ func (c *Client) GetTags(accessToken string) (*Tags, error) {
 // This function calls Get raindrops API with collectionID=0 and specify given tag as a search parameter.
 //
 // Reference: https://developer.raindrop.io/v1/raindrops/multiple#search-parameter
-func (c *Client) GetTaggedRaindrops(accessToken string, tag string) (*Raindrops, error) {
+func (c *Client) GetTaggedRaindrops(accessToken string, tag string) (*MultiRaindropsResponse, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, endpointRaindrops+"0")
 	request, err := c.newRequest(accessToken, http.MethodGet, u, nil)
@@ -378,7 +444,7 @@ func (c *Client) GetTaggedRaindrops(accessToken string, tag string) (*Raindrops,
 		return nil, err
 	}
 
-	r := new(Raindrops)
+	r := new(MultiRaindropsResponse)
 	if err := parseResponse(response, 200, &r); err != nil {
 		return nil, err
 	}
