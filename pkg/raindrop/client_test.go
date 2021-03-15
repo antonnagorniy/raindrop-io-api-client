@@ -68,7 +68,7 @@ func Test_GetRaindrops(t *testing.T) {
 		Title: "Test 2",
 		Link:  "https://example.com/2",
 	}
-	expected := Raindrops{
+	expected := MultiRaindropsResponse{
 		Result: true,
 		Items:  []Raindrop{raindrop1, raindrop2},
 	}
@@ -348,7 +348,7 @@ func Test_GetTaggedRaindrops(t *testing.T) {
 		Title: "Test 1",
 		Link:  "https://example.com/1",
 	}
-	expected := Raindrops{
+	expected := MultiRaindropsResponse{
 		Result: true,
 		Items:  []Raindrop{raindrop1},
 	}
