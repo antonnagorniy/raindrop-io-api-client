@@ -20,7 +20,7 @@ const (
 	authHost = "https://raindrop.io"
 
 	endpointAuthorize   = "/oauth/authorize"
-	authorizeUri        = endpointAuthorize + "?redirect_uri=%s&client_id=%s"
+	authorizeUri        = endpointAuthorize + "?client_id=%s&redirect_uri=%s"
 	endpointAccessToken = "/oauth/access_token"
 
 	endpointGetRootCollections  = "/rest/v1/collections"
@@ -455,7 +455,7 @@ func (c *Client) GetTaggedRaindrops(accessToken string, tag string) (*MultiRaind
 // GetAuthorizationURL returns URL for user to authorize app
 func (c *Client) GetAuthorizationURL() (url.URL, error) {
 	u := c.authURL
-	uri := fmt.Sprintf(authorizeUri, c.redirectUri, c.clientId)
+	uri := fmt.Sprintf(authorizeUri, c.clientId, c.redirectUri)
 	u.Path = path.Join(uri)
 	return *u, nil
 }
