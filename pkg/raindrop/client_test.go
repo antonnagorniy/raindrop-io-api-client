@@ -49,7 +49,7 @@ func TestClient_GetAuthorizationURL(t *testing.T) {
 	}
 
 	expectedAuthUrl :=
-		"https://raindrop.io/oauth/authorize?redirect_uri=test_redirect_uri&client_id=test_id"
+		"https://raindrop.io/oauth/authorize?client_id=test_id&redirect_uri=test_redirect_uri"
 
 	if actualAuthUrl != expectedAuthUrl {
 		t.Errorf("assert failed. expect:%s actual:%s", expectedAuthUrl, actualAuthUrl)
