@@ -32,8 +32,8 @@ func init() {
 }
 
 func main() {
-	client, err := raindrop.NewClient("603648bd22f9958dab62c62f",
-		"e46b6a8a-018d-43b1-8b28-9c4a57c1b202",
+	client, err := raindrop.NewClient("5478394jfkdlsf843u430",
+		"e46b6a8a-018d-43b1-8b28-543kjl32ghj",
 		"http://localhost:8080/oauth")
 	log.HandleError(err, true)
 
