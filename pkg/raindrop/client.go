@@ -565,15 +565,15 @@ func (c *Client) newRequest(accessToken string, httpMethod string, fullUrl url.U
 		return nil, err
 	}
 
-	var b []byte = nil
+	var b bytes.Buffer
 	if body != nil {
-		b, err = json.Marshal(body)
+		err := json.NewEncoder(&b).Encode(body)
 		if err != nil {
-			return nil, errors.WithMessage(err, "failed to marshal input body")
+			return nil, err
 		}
 	}
 
-	req, err := http.NewRequest(httpMethod, u, bytes.NewBuffer(b))
+	req, err := http.NewRequest(httpMethod, u, &b)
 	if err != nil {
 		return nil, err
 	}
