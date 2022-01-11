@@ -1,12 +1,14 @@
 package raindrop
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func Test_NewClient(t *testing.T) {
@@ -89,7 +91,9 @@ func Test_GetRaindrops(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetRaindrops("access-token", "1", 50)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	actual, err := sut.GetRaindrops("access-token", "1", 50, ctx)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -138,7 +142,9 @@ func Test_GetRootCollections(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetRootCollections("access-token")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	actual, err := sut.GetRootCollections("access-token", ctx)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -189,7 +195,9 @@ func Test_GetChildCollections(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetChildCollections("access-token")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	actual, err := sut.GetChildCollections("access-token", ctx)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -235,7 +243,9 @@ func Test_GetCollection(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetCollection("access-token", 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	actual, err := sut.GetCollection("access-token", 1, ctx)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -279,8 +289,10 @@ func Test_CreateCollection(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	actual, err := sut.CreateCollection("access-token", true, "list",
-		"TestColl", 0, false, 0, nil)
+		"TestColl", 0, false, 0, nil, ctx)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -323,7 +335,9 @@ func Test_GetTags(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetTags("access-token")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	actual, err := sut.GetTags("access-token", ctx)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -374,7 +388,9 @@ func Test_GetTaggedRaindrops(t *testing.T) {
 	sut := createTestClient(ts, t)
 
 	// Then
-	actual, err := sut.GetTaggedRaindrops("access-token", tag)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	actual, err := sut.GetTaggedRaindrops("access-token", tag, ctx)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
