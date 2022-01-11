@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 	"net/http"
 	"net/url"
 	"path"
@@ -207,11 +208,11 @@ func NewClient(clientId string, clientSecret string, redirectUri string) (*Clien
 
 // GetRootCollections call Get root collections API.
 // Reference: https://developer.raindrop.io/v1/collections/methods#get-root-collections
-func (c *Client) GetRootCollections(accessToken string) (*GetCollectionsResponse, error) {
+func (c *Client) GetRootCollections(accessToken string, ctx context.Context) (*GetCollectionsResponse, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, endpointGetRootCollections)
 
-	req, err := c.newRequest(accessToken, http.MethodGet, u, nil)
+	req, err := c.newRequest(accessToken, http.MethodGet, u, nil, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -231,11 +232,11 @@ func (c *Client) GetRootCollections(accessToken string) (*GetCollectionsResponse
 
 // GetChildCollections call Get child collections API.
 // Reference: https://developer.raindrop.io/v1/collections/methods#get-child-collections
-func (c *Client) GetChildCollections(accessToken string) (*GetCollectionsResponse, error) {
+func (c *Client) GetChildCollections(accessToken string, ctx context.Context) (*GetCollectionsResponse, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, endpointGetChildCollections)
 
-	req, err := c.newRequest(accessToken, http.MethodGet, u, nil)
+	req, err := c.newRequest(accessToken, http.MethodGet, u, nil, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -255,11 +256,11 @@ func (c *Client) GetChildCollections(accessToken string) (*GetCollectionsRespons
 
 // GetCollection call Get collection API.
 // Reference: https://developer.raindrop.io/v1/collections/methods#get-collection
-func (c Client) GetCollection(accessToken string, id uint32) (*GetCollectionResponse, error) {
+func (c Client) GetCollection(accessToken string, id uint32, ctx context.Context) (*GetCollectionResponse, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, endpointGetCollection+strconv.Itoa(int(id)))
 
-	req, err := c.newRequest(accessToken, http.MethodGet, u, nil)
+	req, err := c.newRequest(accessToken, http.MethodGet, u, nil, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +281,7 @@ func (c Client) GetCollection(accessToken string, id uint32) (*GetCollectionResp
 // CreateCollection creates new Collection
 // Reference: https://developer.raindrop.io/v1/collections/methods#create-collection
 func (c *Client) CreateCollection(accessToken string, isRoot bool, view string, title string, sort int,
-	public bool, parentId uint32, cover []string) (*CreateCollectionResponse, error) {
+	public bool, parentId uint32, cover []string, ctx context.Context) (*CreateCollectionResponse, error) {
 
 	fullUrl := *c.apiURL
 	fullUrl.Path = path.Join(endpointCreateCollection)
@@ -306,7 +307,7 @@ func (c *Client) CreateCollection(accessToken string, isRoot bool, view string, 
 		}
 	}
 
-	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, collection)
+	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, collection, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +328,7 @@ func (c *Client) CreateCollection(accessToken string, isRoot bool, view string, 
 
 // CreateSimpleRaindrop creates new simple unsorted Raindrop
 // Reference: https://developer.raindrop.io/v1/raindrops/single#create-raindrop
-func (c *Client) CreateSimpleRaindrop(accessToken string, link string) (*SingleRaindropResponse, error) {
+func (c *Client) CreateSimpleRaindrop(accessToken string, link string, ctx context.Context) (*SingleRaindropResponse, error) {
 	fullUrl := *c.apiURL
 	fullUrl.Path = path.Join(endpointRaindrop)
 
@@ -352,7 +353,7 @@ func (c *Client) CreateSimpleRaindrop(accessToken string, link string) (*SingleR
 		Link:        link,
 	}
 
-	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, raindrop)
+	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, raindrop, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -373,11 +374,11 @@ func (c *Client) CreateSimpleRaindrop(accessToken string, link string) (*SingleR
 
 // GetRaindrops call get raindrops API.
 // Reference: https://developer.raindrop.io/v1/raindrops/multiple#get-raindrops
-func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage int) (*MultiRaindropsResponse, error) {
+func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage int, ctx context.Context) (*MultiRaindropsResponse, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, endpointRaindrops, collectionID)
 
-	req, err := c.newRequest(accessToken, http.MethodGet, u, nil)
+	req, err := c.newRequest(accessToken, http.MethodGet, u, nil, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -401,10 +402,10 @@ func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage i
 
 // GetTags calls Get tags API.
 // Reference: https://developer.raindrop.io/v1/tags#get-tags
-func (c *Client) GetTags(accessToken string) (*Tags, error) {
+func (c *Client) GetTags(accessToken string, ctx context.Context) (*Tags, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, endpointTags)
-	request, err := c.newRequest(accessToken, http.MethodGet, u, nil)
+	request, err := c.newRequest(accessToken, http.MethodGet, u, nil, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -426,10 +427,10 @@ func (c *Client) GetTags(accessToken string) (*Tags, error) {
 // This function calls Get raindrops API with collectionID=0 and specify given tag as a search parameter.
 //
 // Reference: https://developer.raindrop.io/v1/raindrops/multiple#search-parameter
-func (c *Client) GetTaggedRaindrops(accessToken string, tag string) (*MultiRaindropsResponse, error) {
+func (c *Client) GetTaggedRaindrops(accessToken string, tag string, ctx context.Context) (*MultiRaindropsResponse, error) {
 	u := *c.apiURL
 	u.Path = path.Join(c.apiURL.Path, endpointRaindrops+"0")
-	request, err := c.newRequest(accessToken, http.MethodGet, u, nil)
+	request, err := c.newRequest(accessToken, http.MethodGet, u, nil, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +463,7 @@ func (c *Client) GetAuthorizationURL() (url.URL, error) {
 
 // GetAccessToken exchanges user's authorization code to access token
 // Reference: https://developer.raindrop.io/v1/authentication/token#step-3-the-token-exchange
-func (c *Client) GetAccessToken(userCode string) (*AccessTokenResponse, error) {
+func (c *Client) GetAccessToken(userCode string, ctx context.Context) (*AccessTokenResponse, error) {
 	fullUrl := *c.authURL
 	fullUrl.Path = path.Join(endpointAccessToken)
 
@@ -474,7 +475,7 @@ func (c *Client) GetAccessToken(userCode string) (*AccessTokenResponse, error) {
 		GrantType:    "authorization_code",
 	}
 
-	request, err := c.newRequest("", http.MethodPost, fullUrl, body)
+	request, err := c.newRequest("", http.MethodPost, fullUrl, body, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -495,7 +496,7 @@ func (c *Client) GetAccessToken(userCode string) (*AccessTokenResponse, error) {
 
 // RefreshAccessToken refreshes expired token
 // Reference: https://developer.raindrop.io/v1/authentication/token#the-access-token-refresh
-func (c *Client) RefreshAccessToken(refreshToken string) (*AccessTokenResponse, error) {
+func (c *Client) RefreshAccessToken(refreshToken string, ctx context.Context) (*AccessTokenResponse, error) {
 	fullUrl := *c.authURL
 	fullUrl.Path = path.Join(endpointAccessToken)
 
@@ -506,7 +507,7 @@ func (c *Client) RefreshAccessToken(refreshToken string) (*AccessTokenResponse, 
 		RefreshToken: refreshToken,
 	}
 
-	request, err := c.newRequest("", http.MethodPost, fullUrl, body)
+	request, err := c.newRequest("", http.MethodPost, fullUrl, body, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -558,24 +559,32 @@ func createSingleSearchParameter(k, v string) string {
 }
 
 func (c *Client) newRequest(accessToken string, httpMethod string, fullUrl url.URL,
-	body interface{}) (*http.Request, error) {
+	body interface{}, ctx context.Context) (*http.Request, error) {
 
 	u, err := url.QueryUnescape(fullUrl.String())
 	if err != nil {
 		return nil, err
 	}
 
-	var b []byte = nil
+	var b bytes.Buffer
 	if body != nil {
-		b, err = json.Marshal(body)
+		err := json.NewEncoder(&b).Encode(body)
 		if err != nil {
-			return nil, errors.WithMessage(err, "failed to marshal input body")
+			return nil, err
 		}
 	}
 
-	req, err := http.NewRequest(httpMethod, u, bytes.NewBuffer(b))
-	if err != nil {
-		return nil, err
+	var req *http.Request
+	if ctx != nil {
+		req, err = http.NewRequestWithContext(ctx, httpMethod, u, &b)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		req, err = http.NewRequest(httpMethod, u, &b)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	req.Header.Add("Content-Type", "application/json")
