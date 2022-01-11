@@ -192,11 +192,17 @@ func NewClient(clientId string, clientSecret string, redirectUri string) (*Clien
 		return nil, err
 	}
 
+	tr := &http.Transport{
+		MaxIdleConns:       10,
+		IdleConnTimeout:    30 * time.Second,
+		DisableCompression: true,
+	}
 	client := Client{
 		apiURL:  api,
 		authURL: auth,
 		httpClient: &http.Client{
-			Timeout: defaultTimeout,
+			Timeout:   defaultTimeout,
+			Transport: tr,
 		},
 		clientId:     clientId,
 		clientSecret: clientSecret,
