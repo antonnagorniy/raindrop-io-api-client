@@ -1,3 +1,5 @@
+
+
 # Unofficial Raindrop.io API client
 ## Work in progress
 
@@ -12,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/kattaris/errhand"
 	"github.com/kattaris/raindrop-io-api-client/pkg/raindrop"
@@ -59,22 +62,22 @@ func main() {
 		time.Sleep(3 * time.Second)
 	}
 
-	accessTokenResp, err := client.GetAccessToken(client.ClientCode)
+	accessTokenResp, err := client.GetAccessToken(client.ClientCode, context.Background())
 	log.HandleError(err, true)
 	accessToken := accessTokenResp.AccessToken
 
 	// Step 4: Check API's methods
 	result, err := client.CreateCollection(accessToken, true, "list",
-		"Test", 1, false, 0, nil)
+		"Test", 1, false, 0, nil, context.Background())
 	log.HandleError(err, false)
 
 	fmt.Printf("Create collection result: %v\n", result)
 
-	rootCollections, err := client.GetRootCollections(accessToken)
+	rootCollections, err := client.GetRootCollections(accessToken, context.Background())
 	log.HandleError(err, false)
 	fmt.Printf("Root Collections: %v\n", rootCollections)
 
-	childCollections, err := client.GetChildCollections(accessToken)
+	childCollections, err := client.GetChildCollections(accessToken, context.Background())
 	log.HandleError(err, false)
 	fmt.Printf("Child Collections: %v\n", childCollections)
 }
